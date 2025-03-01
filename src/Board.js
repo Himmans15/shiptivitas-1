@@ -14,13 +14,16 @@ export default class Board extends React.Component {
         inProgress: clients.filter(client => client.status && client.status === 'in-progress'),
         complete: clients.filter(client => client.status && client.status === 'complete'),
       }
-    }
+    };
     this.swimlanes = {
       backlog: React.createRef(),
       inProgress: React.createRef(),
       complete: React.createRef(),
-    }
+    };
   }
+
+  
+
   getClients() {
     return [
       ['1','Stark, White and Abbott','Cloned Optimal Architecture', 'in-progress'],
@@ -50,9 +53,65 @@ export default class Board extends React.Component {
       status: companyDetails[3],
     }));
   }
+
+  // Update client status in state
+  updateClientStatus(clientId, newStatus) {
+    const updatedClients = { ...this.state.clients };
+
+    // Ensure that each status array is properly initialized if it doesn't exist
+    if (!updatedClients.backlog) updatedClients.backlog = [];
+    if (!updatedClients.inProgress) updatedClients.inProgress = [];
+    if (!updatedClients.complete) updatedClients.complete = [];
+
+    // Remove the client from its previous status array
+    Object.keys(updatedClients).forEach(status => {
+      updatedClients[status] = updatedClients[status].filter(client => client.id !== clientId);
+    });
+
+    // Find the client and update its status
+    const updatedClient = this.getClients().find(client => clientId === client.id);
+    if (updatedClient) {
+      updatedClient.status = newStatus;
+
+      // Make sure that the new status array exists before pushing the updated client
+      if (!updatedClients[newStatus]) {
+        updatedClients[newStatus] = []; // Initialize the array if it doesn't exist
+      }
+
+      updatedClients[newStatus].push(updatedClient); // Add client to the new status array
+    }
+
+    // Update state with the modified clients
+    this.setState({ clients: updatedClients });
+  }
+
+  // Initialize Dragula on component mount
+  componentDidMount() {
+    const drake = Dragula([this.swimlanes.backlog.current, this.swimlanes.inProgress.current, this.swimlanes.complete.current]);
+
+    drake.containers.forEach(container => {
+      container.addEventListener('touchmove', (e) => {
+        e.preventDefault();  // Allow preventing default actions in touchmove
+      }, { passive: false });
+    });
+
+    drake.on('drop', (el, target) => {
+      const clientId = el.getAttribute('data-id');
+      const newStatus = target.getAttribute('data-status');
+      
+      // Update client status
+      this.updateClientStatus(clientId, newStatus);
+    });
+  }
+
   renderSwimlane(name, clients, ref) {
     return (
-      <Swimlane name={name} clients={clients} dragulaRef={ref}/>
+      <Swimlane
+        name={name}
+        clients={clients}
+        dragulaRef={ref}
+        updateClientStatus={this.updateClientStatus.bind(this)} // Pass update function to Swimlane
+      />
     );
   }
 
